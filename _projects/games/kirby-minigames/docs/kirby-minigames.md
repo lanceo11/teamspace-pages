@@ -341,7 +341,7 @@ const orb = new Collectible({
 - `activateOrb(definition)` = applies the orb effect
 - `this.destroy()` = removes the orb after pickup
 
-### Game-in-game transition breakdown
+### Game-in-game transition breakdown (Group of Three)
 
 ## PART 1 - Starting a nested minigame from Aquatic
 
@@ -391,7 +391,7 @@ topGame.transitionToLevel();
 - `currentLevelIndex` = points to the Basketball level
 - `transitionToLevel()` = performs the actual level swap
 
-### Collision logic breakdown
+### Collision logic breakdown (Triple Chocolate Banana Swirl)
 
 ## PART 1 - Building hitbox rectangles
 
@@ -453,7 +453,7 @@ if (shark.collisionData?.hit) {
 
 That means the overall project uses multiple collision styles on purpose: collectibles, player-vs-enemy overlap, projectile contact, and built-in enemy hit detection.
 
-### NPC chasing behavior breakdown
+### NPC chasing behavior breakdown (Team Ocean)
 
 ## PART 1 - Measuring direction toward the player
 
@@ -503,7 +503,7 @@ if (Math.abs(dx) > Math.abs(dy)) {
 - picks the stronger axis
 - updates the sprite direction to match movement
 
-### Music system breakdown
+### Music system breakdown (Team Pranigas)
 
 ## PART 1 - Reusing an existing audio class
 
@@ -565,9 +565,8 @@ this.levelMusic = null;
 - `?.` = safely calls cleanup only if the controller exists
 - `null` = clears the reference after teardown
 
-### Sprite swapping and UI system breakdown
 
-### Seek parallax background breakdown
+### Seek parallax background breakdown (Team Bob)
 
 ## PART 1 - Building the layered snow background
 
@@ -642,6 +641,7 @@ this.layers.forEach(layer => {
 
 This creates a moving background that feels more alive than a flat image because the playground stays still while the snow layers drift at different speeds in front of it.
 
+### Sprite swapping and UI system breakdown 
 ## PART 1 - Defining sprite options in one list
 
 Seek stores all playable sprite choices in one configuration array.
@@ -704,7 +704,7 @@ this.timeHud.textContent =
 - `targetSurvivalSeconds` = win condition goal
 - `bestTime` = saved personal best
 
-### Sprite swapping and UI systems (Team Space)
+## Sprite swapping and UI systems (Team Space)
 
 Seek includes a full sprite menu that lets the player swap characters while the game is running. That is more advanced than a single fixed player sprite because it updates the player's sprite sheet data, animation settings, and image source on the fly.
 
