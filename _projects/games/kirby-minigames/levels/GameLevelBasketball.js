@@ -6,7 +6,7 @@ import Barrier from '@assets/js/GameEnginev1.1/essentials/Barrier.js';
 import Leaderboard from '@assets/js/GameEnginev1.1/essentials/Leaderboard.js';
 import DialogueSystem from '@assets/js/GameEnginev1.1/essentials/DialogueSystem.js';
 import KirbyLevelMusic from './KirbyLevelMusic.js';
-import { getKirbyImageUrl } from './kirbyAssetPaths.js';
+import { getKirbyAudioUrl, getKirbyImageUrl } from './kirbyAssetPaths.js';
 
 class GameLevelBasketball {
   constructor(gameEnv) {
@@ -190,7 +190,8 @@ class GameLevelBasketball {
     if (!this.levelMusic) {
       this.levelMusic = new KirbyLevelMusic({
         levelName: 'Basketball',
-        buttonId: 'kirby-basketball-music-toggle'
+        buttonId: 'kirby-basketball-music-toggle',
+        audioSrc: getKirbyAudioUrl('Megalodon Boss Fight #2.mp3')
       }).attach();
     }
 

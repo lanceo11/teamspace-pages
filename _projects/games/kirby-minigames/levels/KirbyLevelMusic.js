@@ -1,4 +1,5 @@
 import PeppaMusic from "../../peppa-pig/levels/PeppaMusic.js";
+import { getKirbyAudioUrl } from "./kirbyAssetPaths.js";
 
 class KirbyLevelMusic extends PeppaMusic {
   constructor(options = {}) {
@@ -14,6 +15,9 @@ class KirbyLevelMusic extends PeppaMusic {
     this.storageKey = options.storageKey || "kirby-minigames:music-enabled";
     this.endpoint = options.endpoint || this.endpoint;
     this.buttonLabel = options.buttonLabel || `${this.levelName} Music`;
+    this.audioSrc =
+      options.audioSrc || getKirbyAudioUrl("Underwater Soundtrack.mp3");
+    this.volume = options.volume ?? 0.45;
 
     if (this.toggleBtn) {
       this.toggleBtn.id = this.buttonId;
@@ -78,7 +82,22 @@ class KirbyLevelMusic extends PeppaMusic {
 
   async startMusic() {
     if (!this.enabled) return;
-    await super.startMusic();
+    if (this.started || !this.userActivated) return;
+
+    try {
+      this.audio = new Audio(this.audioSrc);
+      this.audio.volume = this.volume;
+      this.audio.loop = true;
+      this.audio.preload = "auto";
+      await this.audio.play();
+      this.started = true;
+      this.isPlaying = true;
+      this.removeGestureListeners();
+    } catch (error) {
+      console.warn("Kirby level music: failed to start music", error);
+      this.isPlaying = false;
+    }
+
     this.updateButton();
   }
 

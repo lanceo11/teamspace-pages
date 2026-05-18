@@ -7,6 +7,62 @@ breadcrumb: true
 permalink: /kirby-minigames
 ---
 
+<script>
+  const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (typeof window.pythonURI === 'undefined') {
+    window.pythonURI = isLocalhost ? 'http://localhost:8587' : 'https://flask.opencodingsociety.com';
+  }
+  if (typeof window.javaURI === 'undefined') {
+    window.javaURI = isLocalhost ? 'http://localhost:8585' : 'https://spring.opencodingsociety.com';
+  }
+</script>
+
+<div
+  class="game-runner-container hide-editor"
+  style="--gr-panel-width: 100%; --gr-canvas-height: 580px; margin-bottom: 2rem;"
+>
+  <div class="compact-controls">
+    <span class="game-status">Kirby Minigames</span>
+  </div>
+  <div class="output-container">
+    <div class="game-output">
+      <div id="kirby-minigames-runner" class="gameContainer">
+        <div id="promptDropDown" class="promptDropDown" style="z-index: 9999"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import Core from "{{site.baseurl}}/assets/js/GameEnginev1.1/essentials/Game.js";
+  import GameControl from "{{site.baseurl}}/assets/js/GameEnginev1.1/essentials/GameControl.js";
+  import { pythonURI, javaURI, fetchOptions } from "{{site.baseurl}}/assets/js/api/config.js";
+  import GameLevelAquaticGameLevel from "{{site.baseurl}}/assets/js/projects/kirby-minigames/levels/GameLevelAquaticGameLevel.js";
+  import GameLevelSeek from "{{site.baseurl}}/assets/js/projects/kirby-minigames/levels/GameLevelSeek.js";
+  import GameLevelBasketball from "{{site.baseurl}}/assets/js/projects/kirby-minigames/levels/GameLevelBasketball.js";
+
+  const gameContainer = document.getElementById("kirby-minigames-runner");
+  if (gameContainer && !gameContainer.dataset.gameMounted) {
+    gameContainer.dataset.gameMounted = "true";
+    const containerWidth = gameContainer.clientWidth || gameContainer.parentElement?.clientWidth || 800;
+    const containerHeight = gameContainer.clientHeight || 580;
+
+    const environment = {
+      path: "{{site.baseurl}}",
+      pythonURI,
+      javaURI,
+      fetchOptions,
+      gameContainer,
+      gameLevelClasses: [GameLevelAquaticGameLevel, GameLevelSeek, GameLevelBasketball],
+      innerWidth: containerWidth,
+      innerHeight: containerHeight,
+      disableContainerAdjustment: true
+    };
+
+    Core.main(environment, GameControl);
+  }
+</script>
+
 ## Goal
 
 Build a connected minigame experience that starts in an aquatic story level, transitions into a seek-and-collect game, and ends in a basketball survival challenge.
@@ -510,17 +566,19 @@ class KirbyLevelMusic extends PeppaMusic {
 
 ## PART 2 - Attaching music per level
 
-Each level creates its own music controller during setup.
+Each level creates its own music controller during setup and points it at a real Kirby project MP3.
 
 ```js
 this.levelMusic = new KirbyLevelMusic({
   levelName: 'Seek',
-  buttonId: 'kirby-seek-music-toggle'
+  buttonId: 'kirby-seek-music-toggle',
+  audioSrc: getKirbyAudioUrl('Underwater Soundtrack.mp3')
 }).attach();
 ```
 
 - `levelName` = tells the controller which track/context it is serving
 - `buttonId` = unique DOM ID for the music toggle button
+- `audioSrc` = local project audio file instead of a remote preview lookup
 - `attach()` = mounts the controller and its listeners
 
 ## PART 3 - Cleaning up when a level ends
@@ -537,6 +595,81 @@ this.levelMusic = null;
 - `null` = clears the reference after teardown
 
 ### Sprite swapping and UI system breakdown
+
+### Seek parallax background breakdown
+
+## PART 1 - Building the layered snow background
+
+`GameLevelSeek` uses a custom background class instead of a static image-only background so it can draw animated snow on top of the playground art.
+
+```js
+class SeekParallaxBackground extends GameEnvBackground {
+  constructor(data = null, gameEnv = null) {
+    super(data, gameEnv);
+    this.layers = (data.layers || []).map(layer => ({
+      ...layer,
+      particles: this.createParticles(layer)
+    }));
+  }
+}
+```
+
+- `extends GameEnvBackground` = keeps the normal background image behavior
+- `layers` = stores multiple snow groups with different speeds and sizes
+- `createParticles()` = prebuilds the snow positions for each layer
+
+## PART 2 - Defining slow and fast snow layers
+
+The background data in Seek defines two particle layers so the snow does not all move at the same speed.
+
+```js
+layers: [
+  {
+    count: 55,
+    radius: 1,
+    speed: 0.1,
+    color: '#d9f2ff',
+    alpha: 0.55
+  },
+  {
+    count: 28,
+    radius: 2,
+    speed: 2.5,
+    color: '#ffffff',
+    alpha: 0.75
+  }
+]
+```
+
+- the first layer is lighter and slower, so it feels farther back
+- the second layer is larger and faster, so it feels closer to the player
+- using different `count`, `radius`, `speed`, and `alpha` values creates the parallax effect
+
+## PART 3 - Moving the snow every frame
+
+The `draw()` method updates each particle's Y position and then redraws it on the canvas.
+
+```js
+this.layers.forEach(layer => {
+  layer.particles.forEach(particle => {
+    particle.y = (particle.y + particle.speed) % height;
+
+    ctx.save();
+    ctx.globalAlpha = particle.alpha;
+    ctx.fillStyle = particle.color;
+    ctx.beginPath();
+    ctx.arc(particle.x % width, particle.y, particle.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+});
+```
+
+- `particle.y + particle.speed` = makes each snowflake fall downward
+- `% height` = wraps snowflakes back to the top after they leave the screen
+- the canvas draw calls render each flake as a small circle with its own opacity
+
+This creates a moving background that feels more alive than a flat image because the playground stays still while the snow layers drift at different speeds in front of it.
 
 ## PART 1 - Defining sprite options in one list
 

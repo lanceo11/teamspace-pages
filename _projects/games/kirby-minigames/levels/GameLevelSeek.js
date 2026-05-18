@@ -5,7 +5,7 @@ import Barrier from '@assets/js/GameEnginev1.1/essentials/Barrier.js';
 import Collectible from '@assets/js/GameEnginev1.1/essentials/Collectible.js';
 import GameLevelBasketball from './GameLevelBasketball.js';
 import KirbyLevelMusic from './KirbyLevelMusic.js';
-import { getKirbyImageUrl } from './kirbyAssetPaths.js';
+import { getKirbyAudioUrl, getKirbyImageUrl } from './kirbyAssetPaths.js';
 
 console.log('GameLevelSeek.js loaded:', new Date().toISOString());
 
@@ -472,7 +472,8 @@ class GameLevelSeek {
         if (!this.levelMusic) {
             this.levelMusic = new KirbyLevelMusic({
                 levelName: 'Seek',
-                buttonId: 'kirby-seek-music-toggle'
+                buttonId: 'kirby-seek-music-toggle',
+                audioSrc: getKirbyAudioUrl('Underwater Soundtrack.mp3')
             }).attach();
         }
 

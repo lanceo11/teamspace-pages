@@ -27,6 +27,6 @@ const createPublishedProjectAssetUrl = (publishedRoot, fileName = '') => {
 export const getKirbyImageDirectoryUrl = () => createPublishedProjectAssetUrl('images');
 export const getKirbyImageUrl = (fileName) => createPublishedProjectAssetUrl('images', fileName);
 
-// Audio is published alongside the project's image assets so lesson pages can resolve both consistently.
-export const getKirbyAudioDirectoryUrl = () => createPublishedProjectAssetUrl('images');
-export const getKirbyAudioUrl = (fileName) => createPublishedProjectAssetUrl('images', fileName);
+// Audio is published from the project's Audios directory.
+export const getKirbyAudioDirectoryUrl = () => createPublishedProjectAssetUrl('Audios');
+export const getKirbyAudioUrl = (fileName) => createPublishedProjectAssetUrl('Audios', fileName);
