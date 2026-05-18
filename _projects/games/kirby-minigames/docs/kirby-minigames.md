@@ -67,7 +67,7 @@ permalink: /kirby-minigames
 
 Build a connected minigame experience that starts in an aquatic story level, transitions into a seek-and-collect game, and ends in a basketball survival challenge.
 
-This project also adds replay systems and technical features beyond a basic level build, including game-in-game transitions, collision logic, enemy chasing behavior, optional multiplayer, and level-specific music.
+This project also adds replay systems and technical features beyond a basic level build, including game-in-game transitions, collision logic, enemy chasing behavior, optional and level-specific music.
 
 ## Files Changed
 
@@ -122,7 +122,6 @@ The Megalodon boss fight acts like a final combat phase for the aquatic level in
 - Game-in-game level transitions
 - Collision and hitbox logic
 - NPC chasing behavior
-- Optional two-player aquatic multiplayer
 - Level-specific music with a reusable controller
 
 ## Implementing Enemies (Team Ocean)
@@ -443,6 +442,17 @@ const dy = projectile.y - nearestY;
 - `dx` and `dy` = distance from the projectile center to that point
 - this method works better for round projectiles than plain rectangle overlap
 
+Aquatic uses a different collision path for shark pressure:
+
+```js
+shark.isCollision(player);
+if (shark.collisionData?.hit) {
+  this.showSharkGameOver();
+}
+```
+
+That means the overall project uses multiple collision styles on purpose: collectibles, player-vs-enemy overlap, projectile contact, and built-in enemy hit detection.
+
 ### NPC chasing behavior breakdown
 
 ## PART 1 - Measuring direction toward the player
@@ -475,6 +485,7 @@ lebron.position.y += (dy / dist) * speed;
 - `speed` = chase speed for that frame
 - `currentTime * 0.03` = slowly ramps up the difficulty
 - `Math.min(..., 2.8)` = keeps the chase capped
+- the level also clamps the chaser back into the visible court so the pursuit stays readable and fair
 
 ## PART 3 - Pointing the sprite the right way
 
@@ -492,67 +503,11 @@ if (Math.abs(dx) > Math.abs(dy)) {
 - picks the stronger axis
 - updates the sprite direction to match movement
 
-### Multiplayer system breakdown
-
-## PART 1 - Turning a URL room into multiplayer state
-
-Aquatic enables co-op by reading a `room` value and using it to build a shared channel name.
-
-```js
-const multiplayerRoom = new URLSearchParams(window.location.search).get('room') || '';
-this.multiplayer = {
-  enabled: Boolean(multiplayerRoom),
-  room: multiplayerRoom,
-  channelName: `aquatic_multiplayer_${multiplayerRoom}`,
-};
-```
-
-- `URLSearchParams(...)` = reads query string settings from the page URL
-- `enabled` = flips multiplayer on or off
-- `room` = the lobby name
-- `channelName` = the communication key for that lobby
-
-## PART 2 - Choosing a transport layer
-
-The level prefers `BroadcastChannel`, but falls back to browser storage events if needed.
-
-```js
-if (typeof BroadcastChannel !== 'undefined') {
-  const channel = new BroadcastChannel(this.multiplayer.channelName);
-  channel.onmessage = (event) => handleMultiplayerMessage(event.data);
-  this.multiplayer.channel = channel;
-}
-```
-
-- `BroadcastChannel` = direct tab-to-tab communication
-- `channelName` = makes sure only the same room shares messages
-- `onmessage` = receives updates from the other player
-- fallback logic exists for browsers that do not support the channel API
-
-## PART 3 - Sending heartbeat updates
-
-The local player broadcasts position updates on a timer so the other client can draw them.
-
-```js
-this.multiplayer.heartbeatTimer = setInterval(() => {
-  broadcastMultiplayerMessage({
-    type: "state",
-    x: player.position?.x || 0,
-    y: player.position?.y || 0,
-    direction: player.direction || "down",
-  });
-}, 120);
-```
-
-- `setInterval(..., 120)` = sends updates about every 120ms
-- `type: "state"` = marks this as a movement packet
-- `x`, `y`, `direction` = enough data to mirror the other player
-
 ### Music system breakdown
 
 ## PART 1 - Reusing an existing audio class
 
-Instead of writing a new system from scratch, Kirby music extends the Peppa music controller.
+Seek and Basketball reuse an existing controller instead of writing a new system from scratch, while Aquatic keeps its own story and boss theme flow.
 
 ```js
 import PeppaMusic from "../../peppa-pig/levels/PeppaMusic.js";
@@ -564,9 +519,16 @@ class KirbyLevelMusic extends PeppaMusic {
 - `extends` = inherits the old behavior
 - `KirbyLevelMusic` = customizes it for this project
 
+The Kirby wrapper also adds project-specific lifecycle rules:
+
+- removes duplicate music buttons
+- stores the player's music preference in `localStorage`
+- keeps only one active controller alive at a time
+- destroys leftover listeners and audio when the level ends
+
 ## PART 2 - Attaching music per level
 
-Each level creates its own music controller during setup and points it at a real Kirby project MP3.
+Seek and Basketball each create their own music controller during setup and point it at a real Kirby project MP3.
 
 ```js
 this.levelMusic = new KirbyLevelMusic({
@@ -581,9 +543,18 @@ this.levelMusic = new KirbyLevelMusic({
 - `audioSrc` = local project audio file instead of a remote preview lookup
 - `attach()` = mounts the controller and its listeners
 
+Aquatic uses direct local theme audio instead of `KirbyLevelMusic` because it needs to swap between underwater and boss tracks during story events.
+
+```js
+const audio = new Audio(this.underwaterMusicSrc);
+audio.loop = true;
+audio.preload = 'auto';
+audio.volume = 0.48;
+```
+
 ## PART 3 - Cleaning up when a level ends
 
-The level destroys the controller in `destroy()` so buttons and audio do not leak between minigames.
+Each level tears its music down when the minigame ends so buttons and audio do not leak between transitions.
 
 ```js
 this.levelMusic?.destroy?.();
@@ -733,161 +704,6 @@ this.timeHud.textContent =
 - `targetSurvivalSeconds` = win condition goal
 - `bestTime` = saved personal best
 
-### Collision system (Triple Chocolate)
-
-We used more than one kind of collision logic depending on the minigame.
-
-In Basketball, the player and chaser use a rectangle-style hitbox collision:
-
-```javascript
-isHitboxCollision(a, b) {
-  const ar = this.getHitboxRect(a);
-  const br = this.getHitboxRect(b);
-  return (
-    ar.left   < br.right  &&
-    ar.right  > br.left   &&
-    ar.top    < br.bottom &&
-    ar.bottom > br.top
-  );
-}
-```
-
-That is used to detect when Kirby catches the player.
-
-Projectiles use circle-to-rectangle collision so a thrown basketball can stun the chaser:
-
-```javascript
-isCircleHittingObject(projectile, obj) {
-  const rect = this.getHitboxRect(obj);
-  const nearestX = Math.max(rect.left, Math.min(projectile.x, rect.right));
-  const nearestY = Math.max(rect.top,  Math.min(projectile.y, rect.bottom));
-  const dx = projectile.x - nearestX;
-  const dy = projectile.y - nearestY;
-  return (dx * dx + dy * dy) <= (projectile.radius * projectile.radius);
-}
-```
-
-In Aquatic, the shark uses built-in collision checking against the player and triggers a game over when the hit lands:
-
-```javascript
-shark.isCollision(player);
-if (shark.collisionData?.hit) {
-  this.showSharkGameOver();
-}
-```
-
-This gave us multiple collision styles in one project: collectibles, enemy contact, and projectile combat.
-
-### NPC chasing behavior (Team Ocean and Space)
-
-The Basketball minigame includes active enemy pursuit instead of a static NPC.
-
-Kirby chases the player by computing the direction vector from Kirby to the player, normalizing that vector, and moving a little each frame:
-
-```javascript
-const dx = player.position.x - lebron.position.x;
-const dy = player.position.y - lebron.position.y;
-const dist = Math.hypot(dx, dy);
-if (dist < 1) return;
-
-const speed = Math.min(2.1 + this.currentTime * 0.03, 2.8);
-lebron.position.x += (dx / dist) * speed;
-lebron.position.y += (dy / dist) * speed;
-```
-
-We also clamp Kirby back into the visible court so the chase stays fair and readable. On top of that, the speed increases slightly over time, which makes the survival challenge harder the longer the player lasts.
-
-Aquatic also has shark movement and collision pressure, but Basketball is the clearest example of a direct chasing system.
-
-### Multiplayer system (Sprinting Snails)
-
-The aquatic level supports optional two-player story play by reading a `room` query parameter from the URL:
-
-```javascript
-const roomParam = new URLSearchParams(window.location.search).get("room");
-applyWorldSize(roomParam ? 2 : 1);
-```
-
-When co-op is active, the level expands the world width and resizes the game container:
-
-```javascript
-const applyWorldSize = (playerCount = 1, options = {}) => {
-  const nextDimensions = getWorldDimensionsForPlayerCount(playerCount);
-  this.gameEnv.innerWidth = nextDimensions.width;
-  this.gameEnv.innerHeight = nextDimensions.height;
-  this.gameEnv.size?.();
-};
-```
-
-The actual multiplayer loop starts in `startMultiplayer()` and uses `BroadcastChannel` when available, with `localStorage` events as a fallback:
-
-```javascript
-if (typeof BroadcastChannel !== "undefined") {
-  const channel = new BroadcastChannel(this.multiplayer.channelName);
-  channel.onmessage = (event) => handleMultiplayerMessage(event.data);
-  this.multiplayer.channel = channel;
-}
-```
-
-The level also sends regular player state updates so the remote player can be rendered and kept in sync:
-
-```javascript
-this.multiplayer.heartbeatTimer = setInterval(() => {
-  const player = this.getLocalPlayer?.();
-  if (!player) return;
-  broadcastMultiplayerMessage({
-    type: "state",
-    x: player.position?.x || 0,
-    y: player.position?.y || 0,
-    direction: player.direction || "down",
-  });
-}, 120);
-```
-
-Beyond movement syncing, the aquatic level also broadcasts quest and scene events such as starting quests, collecting objectives, and switching between underwater and surface scenes.
-
-### Music system (Team Pranigas)
-
-We added music only to the Kirby minigame levels by creating `KirbyLevelMusic.js`.
-
-Instead of rewriting the whole audio system from scratch, the project extends `PeppaMusic` and adapts it for Kirby:
-
-```javascript
-import PeppaMusic from "../../peppa-pig/levels/PeppaMusic.js";
-
-class KirbyLevelMusic extends PeppaMusic {
-```
-
-The Kirby wrapper adds level-safe behavior:
-
-- removes duplicate music buttons
-- stores player preference in `localStorage`
-- pauses and destroys audio when a level ends
-- keeps only one active music controller at a time
-
-The button and playback lifecycle are handled in the controller itself:
-
-```javascript
-attach() {
-  if (this.enabled) {
-    this.addGestureListeners();
-  }
-  this.updateButton();
-  return this;
-}
-```
-
-Each level creates its own music controller during `initialize()` and removes it during `destroy()`, which keeps the music scoped to only these three levels:
-
-```javascript
-this.levelMusic = new KirbyLevelMusic({
-  levelName: "Aquatic",
-  buttonId: "kirby-aquatic-music-toggle",
-}).attach();
-```
-
-This same pattern is also used in Seek and Basketball.
-
 ### Sprite swapping and UI systems (Team Space)
 
 Seek includes a full sprite menu that lets the player swap characters while the game is running. That is more advanced than a single fixed player sprite because it updates the player's sprite sheet data, animation settings, and image source on the fly.
@@ -908,7 +724,7 @@ These systems matter because they are part of the gameplay loop, not just decora
 - Read the implemented level source files directly and documented only features that are actually present in code
 - Verified the transition chain from `GameLevelAquaticGameLevel.js` to `GameLevelSeek.js` to `GameLevelBasketball.js`
 - Verified that collision helpers, chase logic, multiplayer setup, and level music hooks all exist in the project files
-- Verified that `KirbyLevelMusic.js` is attached in Aquatic, Seek, and Basketball and destroyed when those levels are destroyed
+- Verified that Aquatic manages local underwater and boss themes directly while Seek and Basketball attach `KirbyLevelMusic.js` and clean it up during teardown
 - Confirmed that the aquatic level includes story mode, challenge mode, multiplayer state syncing, and boss encounter logic
 - Tried to run a JavaScript syntax check earlier, but `node` is not installed in this environment, so I could not do a local parser or browser runtime check here
 
